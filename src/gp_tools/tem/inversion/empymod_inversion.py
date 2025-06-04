@@ -92,6 +92,50 @@ class tem_inv_smooth1D(pg.Inversion):
         self.test_response = self.fop.response(self.start_model)
         
         return self.test_response
+    
+
+    def prepare_fwd_ip(self, depth_vector, start_model, filter_times=None, max_depth=30, times_rx=None):
+        """
+        method to initialize the forward solver
+
+        Parameters
+        ----------
+        times_rx : np.Array
+            times for the receiver response.
+        depth_vector : np.Array
+            depth vector for the fixed layer inversion.
+        start_model : np.Array
+            ip array describing the initial model.
+        filter_times : tuple
+            (t_min, t_may) in s, filtering range.
+        max_depth : int, optional
+            maximum depth of the fixed layer vector. The default is 30.
+
+        Returns
+        -------
+        np.Array
+            response of the start model.
+
+        """
+        self.max_depth = max_depth  # 4 * self.setup_device['tx_loop']
+        self.start_model = start_model
+        self.depth_fixed = depth_vector
+        self.nlayer = len(self.depth_fixed)
+        if len(self.depth_fixed) != len(self.start_model):
+            raise ValueError('depth vector and start model have different lengths')
+        
+        empy_frwrd = empymod_frwrd(setup_device=self.setup_device,
+                                   setup_solver=None,
+                                   times_rx=times_rx,
+                                   time_range=None, device='TEMfast',
+                                   nlayer=self.nlayer, nparam=start_model.shape[1])
+
+        # self.depth_fixed = np.linspace(0., max_depth, self.nlayer)      #todo: fixed depth vector for inversion, add as parameter
+        self.fop = tem_smooth1D_fwd(self.depth_fixed, empy_frwrd)
+
+        self.test_response = self.fop.response(self.start_model)
+        
+        return self.test_response
 
 
     def prepare_inv(self, maxIter=20, verbose=True):

@@ -517,7 +517,8 @@ class SurveyTEM(SurveyBase):
                             depth_vector: np.ndarray,
                             inversion_key: str,
                             start_model: np.ndarray = None,
-                            verbose: bool = True) -> dict:
+                            verbose: bool = True,
+                            ip:bool = False) -> dict:
         filtered_data = data_dict.get('data')
         filtered_rhoa = filtered_data['rhoa'].values
         filtered_signal = filtered_data['E/I[V/A]'].values
@@ -554,7 +555,14 @@ class SurveyTEM(SurveyBase):
         # setup inv class and calculate response of homogeneous model
         tem_inv = tem_inv_smooth1D(setup_device=setup_device)
 
-        self.test_resp = tem_inv.prepare_fwd(depth_vector=depth_vector,
+        if ip:
+            if verbose:
+                self.logger.info('inversion: Inversion with IP response.')
+            tem_inv.prepare_fwd_ip(depth_vector=depth_vector,
+                                   start_model=start_model,
+                                   times_rx=filtered_time)
+        else:
+            self.test_resp = tem_inv.prepare_fwd(depth_vector=depth_vector,
                                 start_model=start_model,
                                 times_rx=filtered_time)
         tem_inv.prepare_inv(maxIter=20, verbose=verbose)  # prepare the inversion, keep the kwargs like this
@@ -658,7 +666,8 @@ class SurveyTEM(SurveyBase):
                        start_model: np.ndarray = None,
                        noise_floor: Union[float, int] = 0.025,
                        subset: list = None,
-                       verbose: bool = True) -> None:
+                       verbose: bool = True,
+                       ip=False) -> None:
         if self._data_preprocessed is None:
             self.logger.error('data_inversion: No preprocessed data found.')
             return
@@ -1238,14 +1247,15 @@ class SurveyTEM(SurveyBase):
                        unit: str = 'rhoa',
                        filter_times=(7, 700),
                        verbose: bool = True,
-                       fname: Union[str, bool] = None) -> None:
+                       fname: Union[str, bool] = None,
+                       ip = False) -> None:
 
         plot_list = [point for point in self._data_preprocessed.keys() if subset is None or point in subset]
 
         self.data_inversion(subset=plot_list, lam=lam, layer_type=layer_type, layers=layers,
                             max_depth=max_depth, filter_times=filter_times,
                             start_model=start_model, noise_floor=noise_floor,
-                            verbose=verbose)
+                            verbose=verbose, ip=ip)
 
         for key in plot_list:
             self._plot_one_inversion(sounding=key,

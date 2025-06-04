@@ -16,24 +16,7 @@ name_soundings_6 = ['D'+str(i).zfill(3) for i in sounding_6]
 name_soundings = name_soundings_15 + name_soundings_6
 #%%
 survey.plot_raw_filtered(filter_times=(7, 700), legend=True, subset=name_soundings_15, fname='15m_firstlook.png')
-
-
-#%%
-survey.plot_inversion(
-        subset='D001',
-        layer_type='dict',
-        layers={0:0.5, 5:1, 15:2},
-        max_depth=50,
-        filter_times=(10, 100),
-        lam=55,
-        ip=True
-    )
-
-
-
-#%%
-
-
+survey.plot_raw_filtered(filter_times=(7, 100), legend=True, subset=name_soundings_6, fname='6m_firstlook.png')
 
 # %% L-curve
 
