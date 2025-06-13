@@ -121,6 +121,8 @@ class tem_inv_smooth1D(pg.Inversion):
         self.start_model = start_model
         self.depth_fixed = depth_vector
         self.nlayer = len(self.depth_fixed)
+        print(len(self.depth_fixed), len(self.start_model))
+        print(self.depth_fixed, self.start_model)
         if len(self.depth_fixed) != len(self.start_model):
             raise ValueError('depth vector and start model have different lengths')
         
@@ -134,6 +136,7 @@ class tem_inv_smooth1D(pg.Inversion):
         self.fop = tem_smooth1D_fwd(self.depth_fixed, empy_frwrd)
 
         self.test_response = self.fop.response(self.start_model)
+        self.parameterCount = self.start_model.shape[1]
         
         return self.test_response
 

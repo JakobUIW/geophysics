@@ -523,8 +523,7 @@ class SurveyTEM(SurveyBase):
         filtered_rhoa = filtered_data['rhoa'].values
         filtered_signal = filtered_data['E/I[V/A]'].values
         filtered_relerr = filtered_data['rel_err'].values
-        # # testing
-        # filtered_relerr = np.full_like(filtered_relerr, 0.05)
+
         filtered_time = filtered_data['Time'].values
 
         filtered_metadata = data_dict.get('metadata')
@@ -558,9 +557,13 @@ class SurveyTEM(SurveyBase):
         if ip:
             if verbose:
                 self.logger.info('inversion: Inversion with IP response.')
-            tem_inv.prepare_fwd_ip(depth_vector=depth_vector,
+
+            self.test_resp = tem_inv.prepare_fwd_ip(depth_vector=depth_vector,
                                    start_model=start_model,
                                    times_rx=filtered_time)
+            start_model = tem_inv.convertStartModel(model=start_model)
+            print(start_model)
+
         else:
             self.test_resp = tem_inv.prepare_fwd(depth_vector=depth_vector,
                                 start_model=start_model,
@@ -578,15 +581,14 @@ class SurveyTEM(SurveyBase):
         absrms = tem_inv.absrms()
         phi_model = tem_inv.phiModel()
         mag_momen = turn * current * tloop ** 2
-        response_rhoa = 1 / np.pi * (mag_momen / (20 * resp_sgnl)) ** (2 / 3) * (self._mu / filtered_time) ** (
-                5 / 3)
+        response_rhoa = 1 / np.pi * (mag_momen / (20 * resp_sgnl)) ** (2 / 3) * (self._mu / filtered_time) ** (5 / 3)
 
         inversion_df = pd.DataFrame()
         max_length = max(len(res_mdld), len(resp_sgnl), len(thks))
         inversion_df = inversion_df.reindex(range(max_length))
 
         inversion_df['depth_vector'] = pd.Series(depth_vector)
-        inversion_df['start_model'] = pd.Series(start_model)
+        inversion_df['start_model'] = pd.Series(start_model[ :,0])
         inversion_df['resistivity_model'] = pd.Series(res_mdld)
         inversion_df['conductivity_model'] = pd.Series(1 / res_mdld)
         inversion_df['E/I[V/A]'] = pd.Series(resp_sgnl)
@@ -796,7 +798,8 @@ class SurveyTEM(SurveyBase):
                                                                    depth_vector=depth_vector,
                                                                    inversion_key=inversion_key,
                                                                    start_model=start_model,
-                                                                   verbose=verbose)
+                                                                   verbose=verbose,
+                                                                   ip=ip)
                 data_inversion[inv_key]['metadata']['name'] = inv_key
                 data_inversion[inv_key]['metadata']['max_depth'] = max_depth
                 TIMfile.write(data=data_inversion, filepath=file_path_inversion)
@@ -1169,9 +1172,17 @@ class SurveyTEM(SurveyBase):
         obs_unit = filtered_data[unit]
         response_unit = inversion_data[unit].dropna()
         thks = inversion_data['modelled_thickness'].dropna()
-        resp_sgnl = inversion_data['E/I[V/A]'].dropna()
+        resp_sgnl = inversion_data['E/I[V/A]']
         chi2 = inversion_metadata.get('chi2')
         rrms = inversion_metadata.get('relrms')
+
+        resp_sgnl = pd.to_numeric(resp_sgnl, errors='coerce')
+        resp_sgnl = resp_sgnl.dropna()
+
+        response_unit = pd.to_numeric(response_unit, errors='coerce')
+        response_unit = response_unit.dropna()
+
+
 
         if unit == 'rhoa':
             unit_label_ax = r'$\rho_a$ ($\Omega$m)'
@@ -1208,6 +1219,8 @@ class SurveyTEM(SurveyBase):
         ax[1].yaxis.tick_right()
         ax[1].yaxis.set_label_position("right")
         ax[1].grid(True, which="both", alpha=.3)
+
+        thks = pd.to_numeric(thks, errors='coerce')
 
         pygimli.viewer.mpl.drawModel1D(ax[2], thks, model_unit, color='k', label='pyGIMLI')
         ax[2].set_xlabel(unit_label_mod, fontsize=16)
