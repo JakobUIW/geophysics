@@ -364,6 +364,7 @@ class empymod_frwrd(object):
             logger.info('encoutered depth model - keeping layer depth ...')
             self.depth = self.model[1:, 0]
         else:
+            print(self.model)
             raise ValueError('unknown geometry of model - make sure you provide either layer depth or thicknesses')
 
         if add_air:

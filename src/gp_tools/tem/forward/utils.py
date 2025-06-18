@@ -941,6 +941,7 @@ def plot_signal(
                                 figsize=(7, 7))
 
     # select neg values, to mark them explicitly within the plot
+    
     time_sub0 = time[signal < 0]
     sgnl_sub0 = signal[signal < 0]
 

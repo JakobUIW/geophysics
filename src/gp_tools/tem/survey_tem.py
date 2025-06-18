@@ -17,11 +17,14 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import pygimli.viewer.mpl
 from scipy.interpolate import CubicSpline
 
 from gp_tools.core import TEMfile, TIMfile, SurveyBase
 from .inversion.empymod_inversion import tem_inv_smooth1D
+from .forward.utils import plot_data, plot_model
+from .forward.empymod_forward import empymod_frwrd
 
 warnings.filterwarnings('ignore')
 
@@ -54,6 +57,23 @@ class SurveyTEM(SurveyBase):
         self.path_plot_sounding = None
 
         self.__ramp_location = location
+        self.setup_solver = None
+
+    @property
+    def setup_solver(self) -> Union[dict, None]:
+        """
+        The setup_solver attribute is a dictionary that contains the setup for the empymod_frwrd class.
+        Look at the empymod_frwrd class for more information.
+        """
+        return self.__setup_solver
+    
+    @setup_solver.setter
+    def setup_solver(self, setup_solver: Union[dict, None]):
+        """
+        Setter for the setup_solver attribute.
+        """
+        self.__setup_solver = setup_solver
+
 
     def data_raw_path(self) -> Path:
         """
@@ -550,6 +570,7 @@ class SurveyTEM(SurveyBase):
             "filter_powerline": filter_pl,
             "ramp_data": self.__ramp_location
         }
+        self.setup_device = setup_device
 
         # setup inv class and calculate response of homogeneous model
         tem_inv = tem_inv_smooth1D(setup_device=setup_device)
@@ -562,7 +583,6 @@ class SurveyTEM(SurveyBase):
                                    start_model=start_model,
                                    times_rx=filtered_time)
             start_model = tem_inv.convertStartModel(model=start_model)
-            print(start_model)
 
         else:
             self.test_resp = tem_inv.prepare_fwd(depth_vector=depth_vector,
@@ -605,7 +625,8 @@ class SurveyTEM(SurveyBase):
             'absrms': absrms,
             'phi_model': phi_model
         }
-
+        if ip:
+            self.start_model = start_model
         return {'data': inversion_df, 'metadata': inversion_metadata}
 
     def _forward_sounding(self, data_dict: dict,
@@ -1144,12 +1165,64 @@ class SurveyTEM(SurveyBase):
             file_name = f'forward_model_{time}_{filter_times[0]}_{filter_times[1]}_{unit}.png' if fname is None else fname
             fig.savefig(target_dir / file_name)
 
+
+    def __get_model_parameters(self, model_type: str = None) -> Tuple[list, list, list]:
+        """
+        This function gets all the necessary information on title names, 
+        axis-labels and axis-limits for the plotting of different resistivity models.
+
+        **Currently only the simple, pelton and mpa models work.**
+
+        Returns
+        -------
+        Returns 3 lists: lables, titles, limits.
+        """
+        res_labels = ['filler']
+        pelton_labels = ['filler', 'm', r'$\tau$ (s)', 'c']
+        mpa_labels = ['filler', '$\phi_{max}$ (rad)', r'$\tau_{\phi}$ (s)', 'c']
+        # cole_cole_labels = [] TODO
+        # cc_kozhe_labels = [] TODO
+        # dielperm_labels = [] TODO
+
+        title_dict = {
+            'm': 'Chargeability',
+            r'$\tau$ (s)': 'Relaxation Time', 
+            'c': 'Dispersion Coefficient',
+            '$\phi_{max}$ (rad)': 'Max. Phase Angle', 
+            r'$\tau_{\phi}$ (s)': 'Relaxation Time'
+            # TODO: add more
+            }
+        limits_dict = {
+            'm': (-0.1, 1.1),
+            r'$\tau$ (s)': None, 
+            'c': (-0.1, 1.1),
+            '$\phi_{max}$ (rad)': (-0.1, 6.4), 
+            r'$\tau_{\phi}$ (s)': None
+            # TODO: add more
+        }
+
+        if model_type is None:
+            labels = res_labels
+        elif model_type == 'pelton':
+            labels = pelton_labels
+        elif model_type == 'mpa':
+            labels = mpa_labels
+        else:
+            print('Model not implemented entirely yet.')
+            labels = res_labels
+        
+        titles = [title_dict.get(name) for name in labels]
+        limits = [limits_dict.get(name) for name in labels]
+
+        return labels, titles, limits
+
     def _plot_one_inversion(self, sounding,
                            lam: Union[int, float] = 600,
                            filter_times: Tuple[Union[float, int], Union[float, int]] = (7, 700),
                            noise_floor: Union[int, float] = 0.025,
                            unit: str = 'rhoa',
-                           fname: Union[str, bool] = None) -> None:
+                           fname: Union[str, bool] = None,
+                           ip: bool = False) -> None:
 
         inv_name = f'{lam}_{filter_times[0]}_{filter_times[1]}'
         filter_name = f'{filter_times[0]}_{filter_times[1]}_{noise_floor}'
@@ -1201,45 +1274,125 @@ class SurveyTEM(SurveyBase):
             pos_1 = 'left'
             pos_2 = 'right'
 
+    
+ 
+        if ip:
+            model = self.start_model
+            thks = list(thks)
+            thks.append(0)
+            thks = np.array(thks)
+            model = np.transpose(model)
+            model= np.insert(arr=model, obj=0, values=thks, axis=0)
+            model = np.transpose(model)
+            model = np.delete(model, 1, 1)
+            nlayer = model.shape[0]
+            nparam = model.shape[1]
+            nmodel = nparam - 1
+            model_used = model
 
-        fig, ax = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
+            frwrd_solver = empymod_frwrd(
+                setup_device=self.setup_device,
+                setup_solver=self.setup_solver,
+                time_range=None, 
+                device='TEMfast',
+                nlayer=nlayer, 
+                nparam=nparam
+            )
 
-        ax[0].loglog(filtered_data['Time'], resp_sgnl, '-k', label='inversion', zorder=3)
-        ax[0].plot(filtered_data['Time'], filtered_data['E/I[V/A]'], marker='v', label='observed', zorder=2) #color=self.col,
-        ax[0].plot(filtered_data['Time'], filtered_data['Err[V/A]'], label='error', zorder=1, alpha=0.4, linestyle='dashed') #color=self.col,
-        ax[0].set_xlabel('time (s)', fontsize=16)
-        ax[0].set_ylabel(r'$\partial B_z/\partial t$ (V/m²)', fontsize=16)
-        ax[0].grid(True, which="both", alpha=.3)
 
-        ax[1].plot(filtered_data['Time'], response_unit, '-k', label='inversion', zorder=3)
-        ax[1].plot(filtered_data['Time'], obs_unit, marker='v', label='observed', zorder=2) #color=self.col,
-        ax[1].set_xlabel('time (s)', fontsize=16)
-        ax[1].set_ylabel(unit_label_ax, fontsize=16)
-        ax[1].set_xscale('log')
-        ax[1].yaxis.tick_right()
-        ax[1].yaxis.set_label_position("right")
-        ax[1].grid(True, which="both", alpha=.3)
+            self.response_signal = model_unit
+            self.noise_signal = frwrd_solver.response_noise
+            self.response_times = frwrd_solver.times_rx
+            self.response_rhoa = frwrd_solver.rhoa
 
-        thks = pd.to_numeric(thks, errors='coerce')
+           
+            if nmodel > 1:
+                fig = plt.figure(figsize=(10, 10) ,constrained_layout=True)
 
-        pygimli.viewer.mpl.drawModel1D(ax[2], thks, model_unit, color='k', label='pyGIMLI')
-        ax[2].set_xlabel(unit_label_mod, fontsize=16)
-        ax[2].set_ylabel('depth (m)', fontsize=16)
-        ax[2].yaxis.tick_right()
-        ax[2].yaxis.set_label_position("right")
+                gs0 = gridspec.GridSpec(2, 1, figure=fig)
+                gs1 = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs0[0])
+                gs2 = gridspec.GridSpecFromSubplotSpec(1, 2, subplot_spec=gs0[1])
 
-        packed_list = zip(
-            ax,
-            ['Impulse Response', unit_title, 'Model of {} at Depth'.format(unit_title_mod)],
-            ['a', 'b', 'c']
-        )
-        for a, title, label in packed_list:
-            a.legend(loc='lower left')
-            a.set_title(title, fontsize=18, pad=12)
-            a.tick_params(axis='both', which='major', labelsize=14)
-            a.text(0.96, 0.12, f'({label})', transform=a.transAxes, fontsize=18, zorder=5,
-                   verticalalignment='top', horizontalalignment='right',
-                   bbox=dict(facecolor='xkcd:light grey', boxstyle='round,pad=0.5', alpha=0.3))
+                ax_model = [fig.add_subplot(gs1[n]) for n in range(nmodel)]
+                ax_response = [fig.add_subplot(gs2[n]) for n in range(2)]
+            else:
+                fig = plt.figure(figsize=(14, 7) ,constrained_layout=True)
+
+                ax_model = [fig.add_subplot(1,5,1)]
+                ax_response = [fig.add_subplot(1,5,(2,3)), fig.add_subplot(1,5,(4,5))]
+            
+            label_list = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+            for ax, label in zip(ax_model + ax_response, label_list):
+                ax.text(0.96, 0.96, f'({label})', transform=ax.transAxes, fontsize=12, zorder=5,
+                verticalalignment='top', horizontalalignment='right',
+                bbox=dict(facecolor='xkcd:light grey', boxstyle='round,pad=0.4', alpha=0.3))
+
+            ax_response = np.asarray(ax_response)
+            plot_data(
+                time=filtered_data['Time'], ax=ax_response, signal_label=label, rhoa=response_unit,
+                signal=filtered_data['E/I[V/A]'], noise_signal=filtered_data['Err[V/A]'],
+                noise_rhoa=None)
+
+            labels, titles, limits = self.__get_model_parameters(model_type='pelton')
+            for i, label, title, limit in zip(range(len(labels)), labels, titles, limits):
+                print(model_used)
+                thk = model_used[:,0]
+                parameter = model[:,i+1]
+                model = np.column_stack((thk, parameter))
+                res2con=False
+                plot_model(model=model, ax=ax_model[i])
+                if i > 0:
+                    ax_model[i].set_title(title, fontsize=14)
+                    ax_model[i].set_xlabel(label)
+                    ax_model[i].autoscale(enable=True, axis='x', tight=False)
+
+
+            fig.suptitle(self.plot_title, fontsize=16, fontweight='bold')
+
+            self.fig = fig
+            self.ax_model = ax_model
+            self.ax_response = ax_response
+
+
+        else:
+            fig, ax = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
+
+            ax[0].loglog(filtered_data['Time'], resp_sgnl, '-k', label='inversion', zorder=3)
+            ax[0].plot(filtered_data['Time'], filtered_data['E/I[V/A]'], marker='v', label='observed', zorder=2) #color=self.col,
+            ax[0].plot(filtered_data['Time'], filtered_data['Err[V/A]'], label='error', zorder=1, alpha=0.4, linestyle='dashed') #color=self.col,
+            ax[0].set_xlabel('time (s)', fontsize=16)
+            ax[0].set_ylabel(r'$\partial B_z/\partial t$ (V/m²)', fontsize=16)
+            ax[0].grid(True, which="both", alpha=.3)
+
+            ax[1].plot(filtered_data['Time'], response_unit, '-k', label='inversion', zorder=3)
+            ax[1].plot(filtered_data['Time'], obs_unit, marker='v', label='observed', zorder=2) #color=self.col,
+            ax[1].set_xlabel('time (s)', fontsize=16)
+            ax[1].set_ylabel(unit_label_ax, fontsize=16)
+            ax[1].set_xscale('log')
+            ax[1].yaxis.tick_right()
+            ax[1].yaxis.set_label_position("right")
+            ax[1].grid(True, which="both", alpha=.3)
+
+            thks = pd.to_numeric(thks, errors='coerce')
+
+            pygimli.viewer.mpl.drawModel1D(ax[2], thks, model_unit, color='k', label='pyGIMLI')
+            ax[2].set_xlabel(unit_label_mod, fontsize=16)
+            ax[2].set_ylabel('depth (m)', fontsize=16)
+            ax[2].yaxis.tick_right()
+            ax[2].yaxis.set_label_position("right")
+
+            packed_list = zip(
+                ax,
+                ['Impulse Response', unit_title, 'Model of {} at Depth'.format(unit_title_mod)],
+                ['a', 'b', 'c']
+            )
+            for a, title, label in packed_list:
+                a.legend(loc='lower left')
+                a.set_title(title, fontsize=18, pad=12)
+                a.tick_params(axis='both', which='major', labelsize=14)
+                a.text(0.96, 0.12, f'({label})', transform=a.transAxes, fontsize=18, zorder=5,
+                    verticalalignment='top', horizontalalignment='right',
+                    bbox=dict(facecolor='xkcd:light grey', boxstyle='round,pad=0.5', alpha=0.3))
 
         fig.suptitle(f'$\lambda$ = {lam:<8.0f} Sounding = {sounding}\n$\chi^2$ = {chi2:<8.2f} Relative RMS = {rrms:<.2f}%', fontsize=22, fontweight='bold')
         fig.show()
@@ -1276,7 +1429,8 @@ class SurveyTEM(SurveyBase):
                                      filter_times=filter_times,
                                      noise_floor=noise_floor,
                                      unit=unit,
-                                     fname=fname)
+                                     fname=fname,
+                                     ip=ip)
 
     @staticmethod
     def _menger_curvature(p1, p2, p3):
