@@ -1335,9 +1335,8 @@ class SurveyTEM(SurveyBase):
 
             labels, titles, limits = self.__get_model_parameters(model_type='pelton')
             for i, label, title, limit in zip(range(len(labels)), labels, titles, limits):
-                print(model_used)
                 thk = model_used[:,0]
-                parameter = model[:,i+1]
+                parameter = model_used[:,i+1]
                 model = np.column_stack((thk, parameter))
                 res2con=False
                 plot_model(model=model, ax=ax_model[i])
@@ -1345,13 +1344,6 @@ class SurveyTEM(SurveyBase):
                     ax_model[i].set_title(title, fontsize=14)
                     ax_model[i].set_xlabel(label)
                     ax_model[i].autoscale(enable=True, axis='x', tight=False)
-
-
-            fig.suptitle(self.plot_title, fontsize=16, fontweight='bold')
-
-            self.fig = fig
-            self.ax_model = ax_model
-            self.ax_response = ax_response
 
 
         else:
