@@ -897,7 +897,7 @@ def plot_signal(
         xlimits: Union[tuple, None] = None, ylimits: Union[tuple, None] = None,
         sub0col: str = 'k', show_sub0_label: bool = True,
         sub0_ms: Union[float, int] = 5, sub0_mew: Union[float, int] = 1, 
-        sub0_mfc: str = 'none', **kwargs
+        sub0_mfc: str = 'none', col=None, **kwargs
         ) -> matplotlib.axes.Axes:
     """
     Method to plot a signal response with a predefined style.
@@ -950,18 +950,31 @@ def plot_signal(
     else:
         label = None
 
-    ax.loglog(time, abs(signal), label=label, **kwargs)
+    if col is not None:
+        ax.loglog(time, abs(signal), label=label, color=col, **kwargs)
+    else:
+        ax.loglog(time, abs(signal), label=label,**kwargs)
     if show_sub0_label:
-        ax.loglog(time_sub0, abs(sgnl_sub0), marker='s', ls='none',
+        if col is not None:
+            ax.loglog(time_sub0, abs(sgnl_sub0), marker='s', ls='none',
+                    mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew,
+                    mec=sub0col, label='negative vals', color=col)
+        else:
+            ax.loglog(time_sub0, abs(sgnl_sub0), marker='s', ls='none',
                     mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew,
                     mec=sub0col, label='negative vals')
     else:
-        ax.loglog(time_sub0, abs(sgnl_sub0), marker='s', ls='none',
+        if col is not None:
+            ax.loglog(time_sub0, abs(sgnl_sub0), marker='s', ls='none',
+                    mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew,
+                    mec=sub0col, color=col)
+        else:
+            ax.loglog(time_sub0, abs(sgnl_sub0), marker='s', ls='none',
                     mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew,
                     mec=sub0col)
         
     if noise is not None:
-        ax.loglog(time, noise, linestyle='--', alpha=0.3, **kwargs)
+        ax.loglog(time, noise, linestyle='--', alpha=0.3,**kwargs)
     ax.set_xlabel(r'time (s)')
     ax.set_ylabel(r"$\mathrm{d}\mathrm{B}_\mathrm{z}\,/\,\mathrm{d}t$ (V/m²)")
 
@@ -979,7 +992,7 @@ def plot_rhoa(
         xlimits: Union[tuple, None] = None, ylimits: Union[tuple, None] = None,
         sub0col: str = 'k', show_sub0_label: bool = True,
         sub0_ms: Union[float, int] = 5, sub0_mew: Union[float, int] = 1, 
-        sub0_mfc: str = 'none', **kwargs
+        sub0_mfc: str = 'none', col=None, **kwargs
         ) -> matplotlib.axes.Axes:
     """
     Method to plot the apparent resistivity with a predefined style.
@@ -1041,15 +1054,29 @@ def plot_rhoa(
     else:
         label = None
 
-    ax.semilogx(time, abs(app_val), label=label, **kwargs)
+    if col is not None:
+        ax.semilogx(time, abs(app_val), label=label, color=col, **kwargs)
+    else:
+        ax.semilogx(time, abs(app_val), label=label, **kwargs)
     if show_sub0_label:
-        ax.semilogx(time_sub0, abs(app_val_sub0), marker='s', ls='none',
+        if col is not None:
+
+            ax.semilogx(time_sub0, abs(app_val_sub0), marker='s', ls='none',
+                    mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew, 
+                    mec=sub0col, label='negative vals', color=col)
+        else:
+            ax.semilogx(time_sub0, abs(app_val_sub0), marker='s', ls='none',
                     mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew, 
                     mec=sub0col, label='negative vals')
     else:
-        ax.semilogx(time_sub0, abs(app_val_sub0), marker='s', ls='none',
-                    mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew,
-                    mec=sub0col)
+        if col is not None:
+            ax.semilogx(time_sub0, abs(app_val_sub0), marker='s', ls='none',
+                        mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew,
+                        mec=sub0col, color=col)
+        else:
+            ax.semilogx(time_sub0, abs(app_val_sub0), marker='s', ls='none',
+                        mfc=sub0_mfc, ms=sub0_ms, mew=sub0_mew,
+                        mec=sub0col)
     
     if noise is not None:
         ax.semilogx(time, noise, linestyle='--', alpha=0.3, **kwargs)
@@ -1075,7 +1102,7 @@ def plot_data(
         ylimits_signal: Union[tuple, None] = None, ylimits_rhoa: Union[tuple, None] = None, 
         xlimits: Union[tuple, None] = None, log_rhoa: bool = False, 
         show_sub0_label: bool = False, res2con: bool = False, 
-        sub0_color_signal: str = 'k', sub0_color_rhoa: str = 'k', legend=True,
+        sub0_color_signal: str = 'k', sub0_color_rhoa: str = 'k', legend=True,col=None,
         **kwargs
         ) -> np.ndarray:
     """
@@ -1137,13 +1164,12 @@ def plot_data(
             )
     else:
         ax = np.asarray(ax)
-
     _ = plot_signal(
         time=time, signal=signal, 
         label=signal_label, noise=noise_signal, 
         ax=ax[0], xlimits=xlimits, 
         ylimits=ylimits_signal, show_sub0_label=show_sub0_label, 
-        sub0col=sub0_color_signal, **kwargs
+        sub0col=sub0_color_signal, col=col, **kwargs
         )
 
     _ = plot_rhoa(
@@ -1152,7 +1178,7 @@ def plot_data(
         ax=ax[1], log_yaxis=log_rhoa, 
         xlimits=xlimits, ylimits=ylimits_rhoa, 
         res2con=res2con, show_sub0_label=show_sub0_label, 
-        sub0col=sub0_color_rhoa, **kwargs
+        sub0col=sub0_color_rhoa,col=col, **kwargs
         )
     
     if res2con:

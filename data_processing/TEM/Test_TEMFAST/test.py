@@ -24,7 +24,7 @@ survey.plot_inversion(
         subset='D001',
         layer_type='dict',
         layers={0:2, 9:5, 30:10},
-        max_depth=50,
+        max_depth=51,
         filter_times=(10, 100),
         start_model=np.ndarray((5,12),
                                buffer=np.array([50,50,50,50,50,50,50,50,50,50,50,50,
@@ -34,7 +34,7 @@ survey.plot_inversion(
                                             0.1,0.1,0.1,0.1,0.1,0.1,0.8,0.8,0.8,0.8,0.1,0.1])).transpose(),	
         lam=100,
         ip=True,
-        verbose=False
+        verbose=True
     )
 
 

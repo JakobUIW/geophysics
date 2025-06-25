@@ -374,6 +374,7 @@ class TEMfile(BaseFunction):
         
         instance.data = data
 
+
         with open(file=filepath, mode='w') as file:
             for name, soundings in instance.data.items():
                 metadata = soundings.get('metadata')
@@ -381,6 +382,7 @@ class TEMfile(BaseFunction):
                 if metadata is None or dataframe is None:
                     print('Skipped sounding {name}.')
                     continue
+                print(instance.__writing_lines)
                 metadata_str = '\n'.join(instance.__writing_lines).format(**metadata)
                 columns_str = instance.__data_delimiter.join(dataframe.columns)
                 data_str = '\n'.join([instance.__data_delimiter.join(map(str, row)) for row in dataframe.values])

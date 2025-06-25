@@ -39,7 +39,7 @@ class ForwardTEM:
         self.depth_limits = None
 
         # Default device settings
-        self.device = 'TEMfast'
+        self.device = 'key'
         self.timekey = 9
         self.currentkey = 1
         self.loop = 12.5
@@ -678,7 +678,7 @@ class ForwardTEM:
             rhoa=rhoa, noise_rhoa=None,
             xlimits=xlimits, ylimits_signal=ylimits_signal,
             ylimits_rhoa=ylimits_rhoa, log_rhoa=log_rhoa,
-            res2con=res2con, legend=legend, **kwargs
+            res2con=res2con, legend=legend, marker='.', **kwargs
             )
         
         return ax
@@ -895,7 +895,7 @@ class ForwardTEM:
                 res2con = False
             else:
                 res2con = self.res2con
-            self.plot_model(model=model, ax=ax_model[i], res2con=res2con, color=color)
+            self.plot_model(model=model, ax=ax_model[i], res2con=res2con, color=color, marker='.')
             if i > 0:
                 ax_model[i].set_title(title, fontsize=14)
                 ax_model[i].set_xlabel(label)

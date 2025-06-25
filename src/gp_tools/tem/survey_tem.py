@@ -342,7 +342,7 @@ class SurveyTEM(SurveyBase):
 
                     df_data['E/I[V/A]'] = current * df_data['E/I[V/A]'] / (tloop ** 2 * turn)
                     df_data['Err[V/A]'] = current * df_data['Err[V/A]'] / (tloop ** 2 * turn)
-                    df_data['Time'] = df_data['Time'] / 1e6
+                    df_data['Time'] = df_data['Time'] # / 1e6 TODO: evalute when necessary
                     mag_momen = turn * current * tloop ** 2
                     df_data['rhoa'] = 1 / np.pi * (mag_momen / (20 * np.abs(df_data['E/I[V/A]']))) ** (2 / 3) * (self._mu / df_data['Time']) ** (5 / 3)
                     df_data.loc[df_data['E/I[V/A]'] < 0, 'rhoa'] *= -1
@@ -579,10 +579,18 @@ class SurveyTEM(SurveyBase):
             if verbose:
                 self.logger.info('inversion: Inversion with IP response.')
 
+            start_model = np.delete(start_model, np.s_[0:1], axis=1)
+            print('Text in _inversion_sounding (depth_vector, start_model, filtered_time):')
+            print(len(depth_vector))
+            print(depth_vector)
+            print(start_model.shape)
+            print(start_model)
+            print(len(filtered_time))
+            print(filtered_time)
             self.test_resp = tem_inv.prepare_fwd_ip(depth_vector=depth_vector,
                                    start_model=start_model,
                                    times_rx=filtered_time)
-            start_model = tem_inv.convertStartModel(model=start_model)
+            # start_model = tem_inv.convertStartModel(model=start_model)
 
         else:
             self.test_resp = tem_inv.prepare_fwd(depth_vector=depth_vector,
@@ -591,8 +599,19 @@ class SurveyTEM(SurveyBase):
         tem_inv.prepare_inv(maxIter=20, verbose=verbose)  # prepare the inversion, keep the kwargs like this
 
         # start inversion
+        print('Text in _inversion_sounding (filtered_signal, filtered_relerr, start_model, lam):')
+        print(filtered_signal)
+        print(filtered_relerr)
+        print(start_model)
+        print(start_model.flatten(order='C'))
+        print(lam)
+        print('End first text in _inversion_sounding')
         res_mdld = tem_inv.run(dataVals=filtered_signal, errorVals=filtered_relerr,
-                               startModel=start_model, lam=lam)
+                               startModel=start_model.flatten(order='C'), lam=lam, showProgress=True) # just adjusted in effort for error fixing (0624) ); Order was 'F'
+        print('Text after inversion run:')
+        print(res_mdld)
+        print(tem_inv.model)
+        print('End second text in _inversion_sounding')
 
         resp_sgnl = tem_inv.response
         thks = np.diff(tem_inv.depth_fixed)  # convert depths to layer thicknesses
@@ -1329,10 +1348,15 @@ class SurveyTEM(SurveyBase):
 
             ax_response = np.asarray(ax_response)
             plot_data(
-                time=filtered_data['Time'], ax=ax_response, signal_label=label, rhoa=response_unit,
+                time=filtered_data['Time'], ax=ax_response, signal_label=label, rhoa=obs_unit,
                 signal=filtered_data['E/I[V/A]'], noise_signal=filtered_data['Err[V/A]'],
                 noise_rhoa=None)
 
+            plot_data(
+                time=filtered_data['Time'], ax=ax_response, signal_label=label, rhoa=response_unit,
+                signal=inversion_data['E/I[V/A]'], noise_signal=filtered_data['Err[V/A]'],
+                noise_rhoa=None, col='k')
+            
             labels, titles, limits = self.__get_model_parameters(model_type='pelton')
             for i, label, title, limit in zip(range(len(labels)), labels, titles, limits):
                 thk = model_used[:,0]
@@ -1344,6 +1368,7 @@ class SurveyTEM(SurveyBase):
                     ax_model[i].set_title(title, fontsize=14)
                     ax_model[i].set_xlabel(label)
                     ax_model[i].autoscale(enable=True, axis='x', tight=False)
+            pygimli.viewer.mpl.drawModel1D(ax_model[0], thks, model_unit, color='k', label='pyGIMLI')
 
 
         else:

@@ -64,6 +64,7 @@ class empymod_frwrd(object):
         -------
         None.
         """
+        self.nr = 1 # delete after debugging
         self.setup_device = setup_device
         self.setup_solver = setup_solver
         self.relerr = relerr
@@ -544,14 +545,17 @@ class empymod_frwrd(object):
             TEM fast response (dB/dt) - in V/m².
 
         """
-
+        print('calc_response in empymod_frwrd Nr:{}\n'.format(self.nr))
+        self.nr += 1
         rx_times = self.times_rx
         half_sl_side = self.setup_device['txloop'] / 2
         wf_times, wf_current = self.prep_waveform(show_wf)
         prms = self.setup_solver  # parameters for empymod
 
         self.model = model
+        print('Model in empymod_frwrd.calc_response: {}\n\n'.format(model))
         self.parse_TEM_model(add_air=add_air, ip_modeltype=ip_modeltype)
+        print('Resistivity Model in empymod_frwrd.calc_response: {}\n\n'.format(self.res))
 
         logger.info('about to calculate frwrd of model (depth, res):\n(%s,\n%s) \n\n',
                      str(self.depth), str(self.res))
@@ -641,6 +645,7 @@ class empymod_frwrd(object):
         # === APPLY WAVEFORM ===
         self.response = waveform(time, EM, rx_times,
                                  wf_times, wf_current, nquad=prms['nquad'])
+        print('Response in empymod_frwrd.calc_response: {}\n\n'.format(self.response))
         self.response_noise = simulate_error(self.relerr, self.abserr, self.response)
         self.noisy_response = self.response + self.response_noise
 
